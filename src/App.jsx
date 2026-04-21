@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-
+// v2
 const API_BASE = "https://kb-search-production.up.railway.app";
 
 // ─── Design tokens — styl BASELine ──────────────────────────
