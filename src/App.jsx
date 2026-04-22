@@ -396,6 +396,13 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
+  // kategorie
+  const [allCats, setAllCats]         = useState([]);
+  const [selArticleCat, setSelArticleCat] = useState("");
+  const [newCatName, setNewCatName]   = useState("");
+  const [showNewCat, setShowNewCat]   = useState(false);
+  const [savingCat, setSavingCat]     = useState(false);
+
   const showToast = (msg, type = "ok") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
@@ -413,6 +420,11 @@ export default function App() {
       }
     } catch (e) { console.error(e); }
     finally { if (!silent) setBrowseLoading(false); }
+  }, []);
+
+  // Ładuj kategorie przy starcie
+  useEffect(() => {
+    fetch(`${API_BASE}/categories`).then(r => r.json()).then(setAllCats).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -441,13 +453,32 @@ export default function App() {
   // auto-refresh wyników co 60s gdy mamy aktywne wyszukiwanie
   useAutoRefresh(() => { if (searched && query) doSearch(query, true); }, 60000, searched && tab === "search");
 
+  const handleCreateCat = async () => {
+    if (!newCatName.trim()) return;
+    setSavingCat(true);
+    try {
+      const res = await fetch(`${API_BASE}/categories`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCatName.trim() }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const cat = await res.json();
+      setAllCats(prev => [...prev.filter(c => c.id !== cat.id), cat]);
+      setSelArticleCat(String(cat.id));
+      setNewCatName("");
+      setShowNewCat(false);
+      showToast(`Kategoria "${cat.name}" utworzona`);
+    } catch (e) { showToast(`Błąd: ${e.message}`, "err"); }
+    finally { setSavingCat(false); }
+  };
+
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) return;
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/articles`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), slug: slugify(title), summary: summary.trim() || null, content: content.trim(), author: author.trim() || null, category_id: null }),
+        body: JSON.stringify({ title: title.trim(), slug: slugify(title), summary: summary.trim() || null, content: content.trim(), author: author.trim() || null, category_id: selArticleCat ? parseInt(selArticleCat) : null }),
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
@@ -617,6 +648,30 @@ export default function App() {
                 <div style={{ marginBottom: 12 }}><FLabel label="Opis (summary)"/><FInput value={summary} onChange={setSummary} placeholder="Jednozdaniowy opis"/></div>
                 <div style={{ marginBottom: 12 }}><FLabel label="Treść artykułu" required/><FTextarea value={content} onChange={setContent} placeholder="Pełna treść artykułu..." rows={8}/></div>
                 <div style={{ marginBottom: 16 }}><FLabel label="Autor"/><FInput value={author} onChange={setAuthor} placeholder="np. Jan Kowalski"/></div>
+                <div style={{ marginBottom: 16 }}>
+                  <FLabel label="Kategoria"/>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <select value={selArticleCat} onChange={e => setSelArticleCat(e.target.value)}
+                      style={{ flex:1, border:`1px solid ${C.border}`, borderRadius:3, padding:"7px 10px", fontSize:13, color:C.text, outline:"none", background:C.white, cursor:"pointer" }}>
+                      <option value="">— Wybierz kategorię —</option>
+                      {allCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <button onClick={() => setShowNewCat(v => !v)} style={{ padding:"7px 12px", borderRadius:3, border:`1px solid ${C.border}`, background:showNewCat?C.blueLight:C.white, color:C.blue, fontSize:12, cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}>
+                      {showNewCat ? "✕ Anuluj" : "+ Nowa kategoria"}
+                    </button>
+                  </div>
+                  {showNewCat && (
+                    <div style={{ marginTop:8, display:"flex", gap:8 }}>
+                      <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                        onKeyDown={e => e.key==="Enter" && handleCreateCat()}
+                        placeholder="Nazwa nowej kategorii..."
+                        style={{ flex:1, border:`1px solid ${C.blue}`, borderRadius:3, padding:"6px 10px", fontSize:13, outline:"none" }}/>
+                      <button onClick={handleCreateCat} disabled={savingCat || !newCatName.trim()} style={{ padding:"6px 14px", borderRadius:3, border:"none", background:C.blue, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                        {savingCat ? "…" : "Utwórz"}
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} style={{ padding: "8px 20px", borderRadius: 3, border: "none", background: (!title.trim() || !content.trim()) ? C.border : C.blue, color: (!title.trim() || !content.trim()) ? C.textLight : "#fff", fontWeight: 700, fontSize: 13, cursor: (!title.trim() || !content.trim()) ? "not-allowed" : "pointer" }}>
                     {saving ? "⏳ Zapisuję…" : savedId ? "✅ Zapisano!" : "💾 Zapisz artykuł"}
