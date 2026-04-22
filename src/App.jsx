@@ -461,7 +461,7 @@ export default function App() {
   const refreshArticles = useCallback(async () => {
     setBrowseLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/articles/list`);
+      const res = await fetch(`${API_BASE}/kb/articles`);
       if (res.ok) {
         const data = await res.json();
         setArticles(data.map(a => ({ ...a, article_id: a.id })));
