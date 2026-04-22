@@ -1,5 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
+// Sprawdź czy URL zawiera #/article/{id}
+const getArticleIdFromHash = () => {
+  const match = window.location.hash.match(/^#\/article\/(\d+)/);
+  return match ? parseInt(match[1]) : null;
+};
+
 const API_BASE = "https://kb-search-production.up.railway.app";
 
 // ─── Design tokens BASELine ──────────────────────────────────
@@ -588,33 +594,40 @@ export default function App() {
     fetch(`${API_BASE}/categories`).then(r => r.json()).then(setAllCats).catch(() => {});
   }, []);
 
+  // Obsługa hash URL — jeśli #/article/{id} to pokaż stronę artykułu
+  useEffect(() => {
+    const articleId = getArticleIdFromHash();
+    if (articleId) {
+      setCurrentPage("article");
+      setArticleLoading(true);
+      fetch(`${API_BASE}/articles/${articleId}`)
+        .then(r => r.json())
+        .then(data => { setOpenArticle(data); setArticleLoading(false); })
+        .catch(() => setArticleLoading(false));
+    }
+  }, []);
+
   useEffect(() => {
     if (tab === "browse") refreshArticles();
   }, [tab]); // odświeża przy każdym wejściu na zakładkę
 
   // ── Auto-refresh wyników wyszukiwania co 60s ──
   const fetchArticle = async (articleId, title) => {
-    setArticleLoading(true);
-    setPrevTab(tab);
-    setCurrentPage("article");
-    setOpenArticle({ id: articleId, title, content: null });
-    try {
-      const res = await fetch(`${API_BASE}/articles/${articleId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setOpenArticle(data);
-      }
-    } catch (e) {
-      setOpenArticle({ id: articleId, title, content: "Błąd ładowania artykułu." });
-    } finally {
-      setArticleLoading(false);
-    }
+    // Otwórz artykuł w nowej karcie przez hash URL
+    window.open(`${window.location.origin}${window.location.pathname}#/article/${articleId}`, "_blank");
   };
 
   const goBack = () => {
-    setCurrentPage(null);
-    setOpenArticle(null);
-    setTab(prevTab);
+    // Jeśli otwarty przez hash URL (nowa karta) — usuń hash
+    if (window.location.hash.includes("/article/")) {
+      window.location.hash = "";
+      setCurrentPage(null);
+      setOpenArticle(null);
+    } else {
+      setCurrentPage(null);
+      setOpenArticle(null);
+      setTab(prevTab);
+    }
   };
 
   const doSearch = useCallback(async (q = query) => {
