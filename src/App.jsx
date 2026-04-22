@@ -32,6 +32,62 @@ const slugify = (t) =>
   t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
    .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
+// ─── Article Modal ───────────────────────────────────────────
+const ArticleModal = ({ article, loading, onClose }) => {
+  if (!article) return null;
+
+  // Prosty renderer Markdown → HTML (nagłówki, bold, listy, kod)
+  const renderContent = (text) => {
+    if (!text) return null;
+    return text.split("\n").map((line, i) => {
+      if (line.startsWith("## ")) return <h2 key={i} style={{ fontSize:16, fontWeight:700, color:C.text, margin:"16px 0 6px", borderBottom:`1px solid ${C.borderLight}`, paddingBottom:4 }}>{line.slice(3)}</h2>;
+      if (line.startsWith("### ")) return <h3 key={i} style={{ fontSize:14, fontWeight:700, color:C.textMid, margin:"12px 0 4px" }}>{line.slice(4)}</h3>;
+      if (line.startsWith("- ") || line.startsWith("* ")) return <div key={i} style={{ fontSize:13, color:C.textMid, padding:"2px 0 2px 16px", lineHeight:1.6 }}>• {line.slice(2)}</div>;
+      if (line.match(/^\d+\. /)) return <div key={i} style={{ fontSize:13, color:C.textMid, padding:"2px 0 2px 16px", lineHeight:1.6 }}>{line}</div>;
+      if (line.startsWith("```")) return <div key={i} style={{ height:4 }}/>;
+      if (line.trim() === "") return <div key={i} style={{ height:8 }}/>;
+      // bold **text**
+      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      return <p key={i} style={{ fontSize:13, color:C.textMid, margin:"2px 0", lineHeight:1.7 }}>
+        {parts.map((p, j) => p.startsWith("**") ? <strong key={j} style={{ color:C.text }}>{p.slice(2,-2)}</strong> : p)}
+      </p>;
+    });
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 16px", overflowY:"auto" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background:C.white, borderRadius:6, width:"100%", maxWidth:800, boxShadow:"0 8px 32px rgba(0,0,0,0.2)", maxHeight:"85vh", display:"flex", flexDirection:"column" }}>
+        {/* Modal header */}
+        <div style={{ background:C.sectionBg, padding:"12px 16px", borderRadius:"6px 6px 0 0", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:16 }}>📄</span>
+            <span style={{ color:"#fff", fontWeight:700, fontSize:14 }}>{article.title}</span>
+          </div>
+          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.15)", border:"none", color:"#fff", width:28, height:28, borderRadius:3, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+        </div>
+        {/* Meta */}
+        <div style={{ padding:"8px 16px", background:C.bg, borderBottom:`1px solid ${C.border}`, display:"flex", gap:12, alignItems:"center", flexShrink:0 }}>
+          {article.category && <Badge label={article.category}/>}
+          {article.author && <span style={{ fontSize:11, color:C.textLight }}>✍ {article.author}</span>}
+          {article.summary && <span style={{ fontSize:12, color:C.textMid, fontStyle:"italic" }}>{article.summary}</span>}
+        </div>
+        {/* Content */}
+        <div style={{ padding:"20px 20px", overflowY:"auto", flex:1 }}>
+          {loading
+            ? <div style={{ textAlign:"center", padding:40, color:C.textLight }}>⏳ Ładowanie...</div>
+            : renderContent(article.content)
+          }
+        </div>
+        {/* Footer */}
+        <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"flex-end", flexShrink:0 }}>
+          <button onClick={onClose} style={{ padding:"6px 16px", borderRadius:3, border:`1px solid ${C.border}`, background:C.white, color:C.textMid, cursor:"pointer", fontSize:13 }}>Zamknij</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Top Header ──────────────────────────────────────────────
 const Header = () => (
   <div style={{
@@ -168,7 +224,7 @@ const ModeSelector = ({ mode, setMode }) => {
 };
 
 // ─── Result Row ───────────────────────────────────────────────
-const ResultRow = ({ result, query, index }) => {
+const ResultRow = ({ result, query, index, fetchArticle }) => {
   const [exp, setExp] = useState(false);
   const hl = (text) => {
     if (!query || !text) return text;
@@ -369,6 +425,8 @@ export default function App() {
   const [error, setError]         = useState(null);
   const [tab, setTab]             = useState("search");
   const [lastSearch, setLastSearch] = useState(null);
+  const [openArticle, setOpenArticle] = useState(null);   // { id, title, content, ... }
+  const [articleLoading, setArticleLoading] = useState(false);
 
   const [articles, setArticles]             = useState([]);
   const [browseLoading, setBrowseLoading]   = useState(false);
@@ -423,6 +481,22 @@ export default function App() {
   }, [tab]); // odświeża przy każdym wejściu na zakładkę
 
   // ── Auto-refresh wyników wyszukiwania co 60s ──
+  const fetchArticle = async (articleId, title) => {
+    setArticleLoading(true);
+    setOpenArticle({ id: articleId, title, content: null });
+    try {
+      const res = await fetch(`${API_BASE}/articles/${articleId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setOpenArticle(data);
+      }
+    } catch (e) {
+      setOpenArticle({ id: articleId, title, content: "Błąd ładowania artykułu." });
+    } finally {
+      setArticleLoading(false);
+    }
+  };
+
   const doSearch = useCallback(async (q = query) => {
     if (!q.trim()) return;
     setLoading(true); setError(null); setSearched(true);
@@ -565,7 +639,7 @@ export default function App() {
                 <SectionHead title="Wyniki wyszukiwania" count={results.length}
                   right={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>tryb: <strong style={{ color: "#fff" }}>{mode}</strong> {lastSearch && `• ${fmtTime(lastSearch)}`}</span>}
                 />
-                {results.map((r, i) => <ResultRow key={r.article_id} result={r} query={query} index={i + 1}/>)}
+                {results.map((r, i) => <ResultRow key={r.article_id} result={r} query={query} index={i + 1} fetchArticle={fetchArticle}/>)}
               </Card>
             )}
 
@@ -700,6 +774,7 @@ export default function App() {
         <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>BASELine™</span> Wyszukiwarka AI • Stworzone przez <span style={{ color: "rgba(255,255,255,0.7)" }}>WojnaR</span> z pomocą <span style={{ color: "rgba(255,255,255,0.7)" }}>Claude AI (Anthropic)</span> • Hybrydowe FTS + Semantic Search
       </div>
 
+      <ArticleModal article={openArticle} loading={articleLoading} onClose={() => setOpenArticle(null)}/>
       <Toast msg={toast?.msg} type={toast?.type}/>
     </div>
   );
