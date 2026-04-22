@@ -826,7 +826,7 @@ export default function App() {
                 </div>
                 {filtered.length === 0
                   ? <div style={{ padding: 32, textAlign: "center", color: C.textLight, fontSize: 13 }}>Brak artykułów. Dodaj je w zakładce "Dodaj".</div>
-                  : filtered.map((a, i) => <ArticleRow key={a.article_id} article={a} index={i + 1} onSearch={t => { setQuery(t); setTab("search"); doSearch(t); }}/>)
+                  : filtered.map((a, i) => <ArticleRow key={a.article_id} article={a} index={i + 1} onSearch={t => { setQuery(t); setTab("search"); doSearch(t); }} fetchArticle={fetchArticle}/>)
                 }
               </Card>
             )}
