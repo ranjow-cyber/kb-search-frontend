@@ -246,7 +246,7 @@ const ResultRow = ({ result, query, index, fetchArticle }) => {
         {/* content */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{hl(result.title)}</span>
+            <span onClick={() => fetchArticle(result.article_id, result.title)} style={{ fontSize: 14, fontWeight: 700, color: C.blue, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}>{hl(result.title)}</span>
             {result.category && <Badge label={result.category}/>}
             {result.source_types.includes("attachment") && <Badge label="📎 załącznik" color={C.purple} bg={C.purpleBg}/>}
             {isGood && <Badge label="✓ Wysoka trafność" color={C.green} bg={C.greenBg}/>}
