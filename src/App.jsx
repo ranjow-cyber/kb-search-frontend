@@ -32,15 +32,6 @@ const slugify = (t) =>
   t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
    .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-// ─── Auto-refresh hook ───────────────────────────────────────
-function useAutoRefresh(fn, intervalMs = 30000, enabled = true) {
-  useEffect(() => {
-    if (!enabled) return;
-    const id = setInterval(fn, intervalMs);
-    return () => clearInterval(id);
-  }, [fn, intervalMs, enabled]);
-}
-
 // ─── Top Header ──────────────────────────────────────────────
 const Header = () => (
   <div style={{
@@ -409,8 +400,8 @@ export default function App() {
   };
 
   // ── Auto-refresh artykułów co 30s gdy na zakładce browse ──
-  const refreshArticles = useCallback(async (silent = false) => {
-    if (!silent) setBrowseLoading(true);
+  const refreshArticles = useCallback(async () => {
+    setBrowseLoading(true);
     try {
       const res = await fetch(`${API_BASE}/articles/list`);
       if (res.ok) {
@@ -419,7 +410,7 @@ export default function App() {
         setLastRefresh(new Date());
       }
     } catch (e) { console.error(e); }
-    finally { if (!silent) setBrowseLoading(false); }
+    finally { setBrowseLoading(false); }
   }, []);
 
   // Ładuj kategorie przy starcie
@@ -429,29 +420,23 @@ export default function App() {
 
   useEffect(() => {
     if (tab === "browse") refreshArticles();
-  }, [tab]);
-
-  // auto-refresh co 30s gdy na browse
-  useAutoRefresh(() => refreshArticles(true), 30000, tab === "browse");
+  }, [tab]); // odświeża przy każdym wejściu na zakładkę
 
   // ── Auto-refresh wyników wyszukiwania co 60s ──
-  const doSearch = useCallback(async (q = query, silent = false) => {
+  const doSearch = useCallback(async (q = query) => {
     if (!q.trim()) return;
-    if (!silent) { setLoading(true); setError(null); setSearched(true); }
+    setLoading(true); setError(null); setSearched(true);
     try {
       const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}&mode=${mode}&top_k=10`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setResults(await res.json());
       setLastSearch(new Date());
     } catch (e) {
-      if (!silent) setError("Błąd połączenia z serwerem.");
+      setError("Błąd połączenia z serwerem.");
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, [query, mode]);
-
-  // auto-refresh wyników co 60s gdy mamy aktywne wyszukiwanie
-  useAutoRefresh(() => { if (searched && query) doSearch(query, true); }, 60000, searched && tab === "search");
 
   const handleCreateCat = async () => {
     if (!newCatName.trim()) return;
@@ -603,7 +588,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
               <StatBox icon="📄" value={articles.length} label="Artykuły w bazie" color={C.blue} sub={lastRefresh ? `odświeżono: ${fmtTime(lastRefresh)}` : null}/>
               <StatBox icon="🗂" value={cats.length} label="Kategorie" color={C.green}/>
-              <StatBox icon="🔄" value="auto" label="Auto-odświeżanie" color={C.orange} sub="co 30 sekund"/>
+
             </div>
 
             {browseLoading && <Card style={{ padding: 40, textAlign: "center" }}><span style={{ color: C.textLight }}>⏳ Ładowanie artykułów…</span></Card>}
