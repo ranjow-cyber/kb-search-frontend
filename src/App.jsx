@@ -32,63 +32,173 @@ const slugify = (t) =>
   t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
    .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-// ─── Article Modal ───────────────────────────────────────────
-const ArticleModal = ({ article, loading, onClose }) => {
-  if (!article) return null;
-
-  // Prosty renderer Markdown → HTML (nagłówki, bold, listy, kod)
-  const renderContent = (text) => {
-    if (!text) return null;
-    return text.split("\n").map((line, i) => {
-      if (line.startsWith("## ")) return <h2 key={i} style={{ fontSize:16, fontWeight:700, color:C.text, margin:"16px 0 6px", borderBottom:`1px solid ${C.borderLight}`, paddingBottom:4 }}>{line.slice(3)}</h2>;
-      if (line.startsWith("### ")) return <h3 key={i} style={{ fontSize:14, fontWeight:700, color:C.textMid, margin:"12px 0 4px" }}>{line.slice(4)}</h3>;
-      if (line.startsWith("- ") || line.startsWith("* ")) return <div key={i} style={{ fontSize:13, color:C.textMid, padding:"2px 0 2px 16px", lineHeight:1.6 }}>• {line.slice(2)}</div>;
-      if (line.match(/^\d+\. /)) return <div key={i} style={{ fontSize:13, color:C.textMid, padding:"2px 0 2px 16px", lineHeight:1.6 }}>{line}</div>;
-      if (line.startsWith("```")) return <div key={i} style={{ height:4 }}/>;
-      if (line.trim() === "") return <div key={i} style={{ height:8 }}/>;
-      // bold **text**
-      const parts = line.split(/(\*\*[^*]+\*\*)/g);
-      return <p key={i} style={{ fontSize:13, color:C.textMid, margin:"2px 0", lineHeight:1.7 }}>
-        {parts.map((p, j) => p.startsWith("**") ? <strong key={j} style={{ color:C.text }}>{p.slice(2,-2)}</strong> : p)}
-      </p>;
-    });
-  };
-
+// ─── Article Page ────────────────────────────────────────────
+const AttachmentPreviewModal = ({ attachment, onClose }) => {
+  if (!attachment) return null;
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:1000, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 16px", overflowY:"auto" }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:C.white, borderRadius:6, width:"100%", maxWidth:800, boxShadow:"0 8px 32px rgba(0,0,0,0.2)", maxHeight:"85vh", display:"flex", flexDirection:"column" }}>
-        {/* Modal header */}
-        <div style={{ background:C.sectionBg, padding:"12px 16px", borderRadius:"6px 6px 0 0", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
+      onClick={e => e.target===e.currentTarget && onClose()}>
+      <div style={{ background:C.white, borderRadius:6, width:"100%", maxWidth:760, maxHeight:"80vh", display:"flex", flexDirection:"column", boxShadow:"0 8px 32px rgba(0,0,0,0.2)" }}>
+        <div style={{ background:C.sectionBg, padding:"10px 16px", borderRadius:"6px 6px 0 0", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:16 }}>📄</span>
-            <span style={{ color:"#fff", fontWeight:700, fontSize:14 }}>{article.title}</span>
+            <span>📎</span>
+            <span style={{ color:"#fff", fontWeight:700, fontSize:13 }}>{attachment.file_name}</span>
+            <span style={{ fontSize:11, color:"rgba(255,255,255,0.5)", background:"rgba(255,255,255,0.1)", padding:"1px 6px", borderRadius:3 }}>{attachment.file_type?.toUpperCase()}</span>
           </div>
-          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.15)", border:"none", color:"#fff", width:28, height:28, borderRadius:3, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <a href={`${API_BASE}/attachments/${attachment.id}/download`} download={attachment.file_name}
+              style={{ padding:"4px 10px", borderRadius:3, background:"rgba(255,255,255,0.15)", color:"#fff", fontSize:12, textDecoration:"none", fontWeight:600 }}>
+              ⬇ Pobierz
+            </a>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,0.15)", border:"none", color:"#fff", width:26, height:26, borderRadius:3, cursor:"pointer", fontSize:16 }}>×</button>
+          </div>
         </div>
-        {/* Meta */}
-        <div style={{ padding:"8px 16px", background:C.bg, borderBottom:`1px solid ${C.border}`, display:"flex", gap:12, alignItems:"center", flexShrink:0 }}>
-          {article.category && <Badge label={article.category}/>}
-          {article.author && <span style={{ fontSize:11, color:C.textLight }}>✍ {article.author}</span>}
-          {article.summary && <span style={{ fontSize:12, color:C.textMid, fontStyle:"italic" }}>{article.summary}</span>}
-        </div>
-        {/* Content */}
-        <div style={{ padding:"20px 20px", overflowY:"auto", flex:1 }}>
-          {loading
-            ? <div style={{ textAlign:"center", padding:40, color:C.textLight }}>⏳ Ładowanie...</div>
-            : renderContent(article.content)
+        <div style={{ padding:"16px 20px", overflowY:"auto", flex:1 }}>
+          {attachment.extracted_text
+            ? <pre style={{ fontSize:12, color:C.textMid, lineHeight:1.7, whiteSpace:"pre-wrap", fontFamily:"inherit", margin:0 }}>{attachment.extracted_text}</pre>
+            : <div style={{ textAlign:"center", padding:40, color:C.textLight }}>
+                <div style={{ fontSize:32, marginBottom:8 }}>📄</div>
+                <div>Brak wyekstrahowanego tekstu dla tego załącznika.</div>
+              </div>
           }
-        </div>
-        {/* Footer */}
-        <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"flex-end", flexShrink:0 }}>
-          <button onClick={onClose} style={{ padding:"6px 16px", borderRadius:3, border:`1px solid ${C.border}`, background:C.white, color:C.textMid, cursor:"pointer", fontSize:13 }}>Zamknij</button>
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Top Header ──────────────────────────────────────────────
+const ArticlePage = ({ article, loading, onBack, fetchArticle }) => {
+  const [attachments, setAttachments] = useState([]);
+  const [attLoading, setAttLoading] = useState(false);
+  const [previewAtt, setPreviewAtt] = useState(null);
+
+  useEffect(() => {
+    if (!article?.id) return;
+    setAttLoading(true);
+    fetch(`${API_BASE}/articles/${article.id}/attachments`)
+      .then(r => r.json())
+      .then(data => setAttachments(data))
+      .catch(() => {})
+      .finally(() => setAttLoading(false));
+  }, [article?.id]);
+
+  const renderContent = (text) => {
+    if (!text) return null;
+    return text.split("\n").map((line, i) => {
+      if (line.startsWith("## ")) return <h2 key={i} style={{ fontSize:17, fontWeight:700, color:C.text, margin:"20px 0 8px", borderBottom:`2px solid ${C.borderLight}`, paddingBottom:6 }}>{line.slice(3)}</h2>;
+      if (line.startsWith("### ")) return <h3 key={i} style={{ fontSize:15, fontWeight:700, color:C.textMid, margin:"16px 0 6px" }}>{line.slice(4)}</h3>;
+      if (line.startsWith("- ") || line.startsWith("* ")) return <div key={i} style={{ fontSize:13, color:C.textMid, padding:"3px 0 3px 20px", lineHeight:1.7, position:"relative" }}><span style={{ position:"absolute", left:8 }}>•</span>{line.slice(2)}</div>;
+      if (line.match(/^\d+\. /)) return <div key={i} style={{ fontSize:13, color:C.textMid, padding:"3px 0 3px 20px", lineHeight:1.7 }}>{line}</div>;
+      if (line.startsWith("```")) return <div key={i} style={{ height:2 }}/>;
+      if (line.trim() === "") return <div key={i} style={{ height:10 }}/>;
+      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      return <p key={i} style={{ fontSize:13, color:C.textMid, margin:"3px 0", lineHeight:1.8 }}>
+        {parts.map((pt, j) => pt.startsWith("**") ? <strong key={j} style={{ color:C.text }}>{pt.slice(2,-2)}</strong> : pt)}
+      </p>;
+    });
+  };
+
+  if (loading) return (
+    <div style={{ maxWidth:1200, margin:"0 auto", padding:"40px 20px", textAlign:"center", color:C.textLight }}>
+      <div style={{ fontSize:24 }}>⏳</div>
+      <div style={{ marginTop:8, fontSize:13 }}>Ładowanie artykułu...</div>
+    </div>
+  );
+
+  if (!article) return null;
+
+  return (
+    <div style={{ maxWidth:1200, margin:"0 auto", padding:"20px 20px" }}>
+      {/* Breadcrumb */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16, fontSize:12, color:C.textLight }}>
+        <button onClick={onBack} style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:3, padding:"4px 12px", cursor:"pointer", color:C.blue, fontSize:12, fontWeight:600 }}>
+          ← Wróć
+        </button>
+        <span>Baza wiedzy</span>
+        <span>›</span>
+        {article.category && <><span style={{ color:C.blue }}>{article.category}</span><span>›</span></>}
+        <span style={{ color:C.text, fontWeight:600 }}>{article.title}</span>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:16, alignItems:"start" }}>
+        {/* Treść artykułu */}
+        <div>
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:6, boxShadow:"0 1px 3px rgba(0,0,0,0.06)" }}>
+            {/* Nagłówek */}
+            <div style={{ background:C.sectionBg, padding:"12px 16px", borderRadius:"6px 6px 0 0", display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:18 }}>📄</span>
+              <span style={{ color:"#fff", fontWeight:700, fontSize:15 }}>{article.title}</span>
+            </div>
+            {/* Meta */}
+            <div style={{ padding:"10px 16px", background:C.bg, borderBottom:`1px solid ${C.border}`, display:"flex", gap:12, flexWrap:"wrap", alignItems:"center" }}>
+              {article.category && <Badge label={article.category}/>}
+              {article.author && <span style={{ fontSize:12, color:C.textLight }}>✍ {article.author}</span>}
+              {article.created_at && <span style={{ fontSize:11, color:C.textLight }}>📅 {article.created_at?.slice(0,10)}</span>}
+            </div>
+            {/* Summary */}
+            {article.summary && (
+              <div style={{ padding:"12px 16px", background:C.blueLight, borderBottom:`1px solid ${C.blueMid}` }}>
+                <p style={{ margin:0, fontSize:13, color:C.blue, fontStyle:"italic", lineHeight:1.7 }}>{article.summary}</p>
+              </div>
+            )}
+            {/* Treść */}
+            <div style={{ padding:"20px 20px" }}>
+              {renderContent(article.content)}
+            </div>
+          </div>
+        </div>
+
+        {/* Panel boczny — załączniki */}
+        <div>
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:6, position:"sticky", top:80 }}>
+            <div style={{ background:C.sectionBg, padding:"10px 14px", borderRadius:"6px 6px 0 0", display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:14 }}>📎</span>
+              <span style={{ color:"#fff", fontWeight:700, fontSize:13, textTransform:"uppercase", letterSpacing:"0.04em" }}>Załączniki</span>
+              {attachments.length > 0 && <span style={{ background:C.blue, color:"#fff", fontSize:10, padding:"1px 6px", borderRadius:99, fontWeight:700 }}>{attachments.length}</span>}
+            </div>
+
+            {attLoading && <div style={{ padding:20, textAlign:"center", color:C.textLight, fontSize:12 }}>⏳ Ładowanie...</div>}
+
+            {!attLoading && attachments.length === 0 && (
+              <div style={{ padding:20, textAlign:"center", color:C.textLight, fontSize:12 }}>
+                <div style={{ fontSize:24, marginBottom:6 }}>📂</div>
+                Brak załączników
+              </div>
+            )}
+
+            {!attLoading && attachments.map(att => (
+              <div key={att.id} style={{ padding:"10px 14px", borderBottom:`1px solid ${C.borderLight}`, display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:18, flexShrink:0 }}>
+                  {att.file_type === "pdf" ? "📕" : att.file_type === "docx" ? "📘" : "📄"}
+                </span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{att.file_name}</div>
+                  <div style={{ fontSize:10, color:C.textLight }}>{att.file_size_kb ? `${att.file_size_kb} KB` : ""} · {att.file_type?.toUpperCase()}</div>
+                </div>
+                <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                  {att.extracted_text && (
+                    <button onClick={() => setPreviewAtt(att)} title="Podgląd tekstu"
+                      style={{ width:28, height:28, borderRadius:3, border:`1px solid ${C.border}`, background:C.white, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      👁
+                    </button>
+                  )}
+                  <a href={`${API_BASE}/attachments/${att.id}/download`} download={att.file_name} title="Pobierz plik"
+                    style={{ width:28, height:28, borderRadius:3, border:`1px solid ${C.border}`, background:C.white, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", textDecoration:"none" }}>
+                    ⬇
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {previewAtt && <AttachmentPreviewModal attachment={previewAtt} onClose={() => setPreviewAtt(null)}/>}
+    </div>
+  );
+};
+
+// ─── Top Header ──────────────────────────────────────────────// ─── Top Header ──────────────────────────────────────────────
 const Header = () => (
   <div style={{
     background: `linear-gradient(90deg, ${C.blue} 0%, ${C.blueDark} 100%)`,
@@ -275,11 +385,11 @@ const ResultRow = ({ result, query, index, fetchArticle }) => {
 };
 
 // ─── Article Row (browse) ─────────────────────────────────────
-const ArticleRow = ({ article, onSearch, index }) => (
+const ArticleRow = ({ article, onSearch, index, fetchArticle }) => (
   <div style={{ padding: "9px 14px", borderBottom: `1px solid ${C.borderLight}`, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", transition: "background .12s" }}
     onMouseEnter={e => e.currentTarget.style.background = C.blueLight}
     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-    onClick={() => onSearch(article.title)}>
+    onClick={() => fetchArticle(article.article_id || article.id, article.title)}>
     <div style={{ width: 26, height: 26, borderRadius: 3, background: C.blueLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0, color: C.blue, fontWeight: 700 }}>{index}</div>
     <div style={{ width: 28, height: 28, background: C.blueLight, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>📄</div>
     <div style={{ flex: 1, minWidth: 0 }}>
@@ -425,8 +535,10 @@ export default function App() {
   const [error, setError]         = useState(null);
   const [tab, setTab]             = useState("search");
   const [lastSearch, setLastSearch] = useState(null);
-  const [openArticle, setOpenArticle] = useState(null);   // { id, title, content, ... }
+  const [currentPage, setCurrentPage] = useState(null);   // 'article' | null
+  const [openArticle, setOpenArticle] = useState(null);
   const [articleLoading, setArticleLoading] = useState(false);
+  const [prevTab, setPrevTab] = useState("search");
 
   const [articles, setArticles]             = useState([]);
   const [browseLoading, setBrowseLoading]   = useState(false);
@@ -483,6 +595,8 @@ export default function App() {
   // ── Auto-refresh wyników wyszukiwania co 60s ──
   const fetchArticle = async (articleId, title) => {
     setArticleLoading(true);
+    setPrevTab(tab);
+    setCurrentPage("article");
     setOpenArticle({ id: articleId, title, content: null });
     try {
       const res = await fetch(`${API_BASE}/articles/${articleId}`);
@@ -495,6 +609,12 @@ export default function App() {
     } finally {
       setArticleLoading(false);
     }
+  };
+
+  const goBack = () => {
+    setCurrentPage(null);
+    setOpenArticle(null);
+    setTab(prevTab);
   };
 
   const doSearch = useCallback(async (q = query) => {
@@ -570,6 +690,9 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif", background: C.bg, minHeight: "100vh", color: C.text }}>
       <Header/>
+      {currentPage === "article"
+        ? <ArticlePage article={openArticle} loading={articleLoading} onBack={goBack} fetchArticle={fetchArticle}/>
+        : <>
       <TabNav tab={tab} setTab={setTab}/>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 20px" }}>
@@ -774,7 +897,8 @@ export default function App() {
         <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>BASELine™</span> Wyszukiwarka AI • Stworzone przez <span style={{ color: "rgba(255,255,255,0.7)" }}>WojnaR</span> z pomocą <span style={{ color: "rgba(255,255,255,0.7)" }}>Claude AI (Anthropic)</span> • Hybrydowe FTS + Semantic Search
       </div>
 
-      <ArticleModal article={openArticle} loading={articleLoading} onClose={() => setOpenArticle(null)}/>
+        </>
+      }
       <Toast msg={toast?.msg} type={toast?.type}/>
     </div>
   );
