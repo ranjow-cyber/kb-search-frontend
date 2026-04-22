@@ -2,563 +2,664 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 const API_BASE = "https://kb-search-production.up.railway.app";
 
-// ─── Design tokens — styl BASELine ──────────────────────────
+// ─── Design tokens BASELine ──────────────────────────────────
 const C = {
-  blue:      "#0078c8",
-  blueDark:  "#005fa3",
-  blueLight: "#e8f4fd",
-  blueMid:   "#cce4f6",
-  white:     "#ffffff",
-  bg:        "#f4f6f8",
-  border:    "#d0d7de",
-  borderLight: "#e8ecf0",
-  text:      "#1a2332",
-  textMid:   "#4a5568",
-  textLight: "#8a9ab0",
-  green:     "#28a745",
-  greenBg:   "#e8f5eb",
-  orange:    "#f59e0b",
-  orangeBg:  "#fef3cd",
-  red:       "#dc3545",
-  redBg:     "#fdecea",
-  purple:    "#6f42c1",
-  purpleBg:  "#f0ebfa",
+  blue:        "#0095d9",
+  blueDark:    "#0078b0",
+  blueLight:   "#e6f5fc",
+  blueMid:     "#b3dff5",
+  headerBg:    "#0095d9",
+  sectionBg:   "#2c2c2c",
+  sectionText: "#ffffff",
+  white:       "#ffffff",
+  bg:          "#f0f2f4",
+  border:      "#d4d8dc",
+  borderLight: "#e8ebee",
+  text:        "#1a1a2e",
+  textMid:     "#555e6b",
+  textLight:   "#8c97a3",
+  green:       "#28a745",
+  greenBg:     "#eaf6ec",
+  orange:      "#f5a623",
+  orangeBg:    "#fef6e8",
+  red:         "#d9534f",
+  redBg:       "#fdf0ef",
+  purple:      "#6f42c1",
+  purpleBg:    "#f0ebfa",
 };
 
 const slugify = (t) =>
-  t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-   .replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
+  t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+   .replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-// ─── Top nav bar ─────────────────────────────────────────────
-const TopBar = () => (
-  <div style={{ background: C.blue, height: 52, display:"flex", alignItems:"center", padding:"0 20px", gap:24, boxShadow:"0 2px 6px rgba(0,0,0,0.18)", position:"sticky", top:0, zIndex:100 }}>
-    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-      <div style={{ width:28, height:28, background:"#fff", borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <span style={{ fontSize:14, fontWeight:900, color:C.blue }}>KB</span>
+// ─── Auto-refresh hook ───────────────────────────────────────
+function useAutoRefresh(fn, intervalMs = 30000, enabled = true) {
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(fn, intervalMs);
+    return () => clearInterval(id);
+  }, [fn, intervalMs, enabled]);
+}
+
+// ─── Top Header ──────────────────────────────────────────────
+const Header = () => (
+  <div style={{
+    background: `linear-gradient(90deg, ${C.blue} 0%, ${C.blueDark} 100%)`,
+    height: 56, display: "flex", alignItems: "center",
+    padding: "0 20px", justifyContent: "space-between",
+    boxShadow: "0 2px 8px rgba(0,120,176,0.25)",
+    position: "sticky", top: 0, zIndex: 200,
+  }}>
+    {/* Logo + tytuł */}
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.15)", padding: "5px 10px", borderRadius: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, width: 18, height: 18 }}>
+          {[0,1,2,3].map(i => <div key={i} style={{ background: "#fff", borderRadius: 1 }}/>)}
+        </div>
+        <span style={{ color: "#fff", fontWeight: 800, fontSize: 15, letterSpacing: "0.05em" }}>BASELine</span>
+        <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 10, marginTop: -6 }}>™</span>
       </div>
-      <span style={{ color:"#fff", fontWeight:700, fontSize:15, letterSpacing:"0.02em" }}>Baza Wiedzy</span>
+      <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.25)" }}/>
+      <div>
+        <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Baza Wiedzy — Wyszukiwarka AI</div>
+        <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 10 }}>Hybrydowe wyszukiwanie semantyczne • Powered by AI</div>
+      </div>
     </div>
-    <div style={{ width:1, height:24, background:"rgba(255,255,255,0.25)" }}/>
-    <span style={{ color:"rgba(255,255,255,0.7)", fontSize:12 }}>Moduł wyszukiwania kontekstowego</span>
+    {/* Created by */}
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ textAlign: "right" }}>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>Created by</div>
+        <div style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>WojnaR & Claude AI</div>
+      </div>
+      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🧠</div>
+    </div>
   </div>
 );
 
-// ─── Tab bar ─────────────────────────────────────────────────
-const TabBar = ({ tab, setTab }) => {
+// ─── Section header (dark — jak w BASELine) ──────────────────
+const SectionHead = ({ title, count, right, icon }) => (
+  <div style={{
+    background: C.sectionBg, color: C.sectionText,
+    padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
+    borderRadius: "4px 4px 0 0", userSelect: "none",
+  }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+      <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: "0.04em", textTransform: "uppercase" }}>{title}</span>
+      {count !== undefined && (
+        <span style={{ background: C.blue, color: "#fff", fontSize: 10, padding: "1px 7px", borderRadius: 99, fontWeight: 700 }}>
+          WIERSZY: {count}
+        </span>
+      )}
+    </div>
+    {right && <div>{right}</div>}
+  </div>
+);
+
+// ─── Tab Navigation ──────────────────────────────────────────
+const TabNav = ({ tab, setTab }) => {
   const tabs = [
-    { id:"search", label:"Wyszukiwanie", icon:"🔍" },
-    { id:"browse", label:"Artykuły", icon:"📄" },
-    { id:"add",    label:"Dodaj artykuł", icon:"➕" },
-    { id:"info",   label:"O module", icon:"ℹ️" },
+    { id: "search", label: "Wyszukiwanie", icon: "🔍" },
+    { id: "browse", label: "Artykuły",     icon: "📄" },
+    { id: "add",    label: "Dodaj",         icon: "➕" },
+    { id: "info",   label: "O module",      icon: "ℹ️" },
   ];
   return (
-    <div style={{ background:C.white, borderBottom:`1px solid ${C.border}`, display:"flex", padding:"0 24px" }}>
+    <div style={{ background: C.white, borderBottom: `2px solid ${C.border}`, display: "flex", padding: "0 20px", gap: 0 }}>
       {tabs.map(t => (
-        <button key={t.id} onClick={()=>setTab(t.id)} style={{
-          padding:"12px 18px", border:"none", background:"none",
-          borderBottom: tab===t.id ? `3px solid ${C.blue}` : "3px solid transparent",
-          color: tab===t.id ? C.blue : C.textMid,
-          fontWeight: tab===t.id ? 700 : 400,
-          fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", gap:6,
-          transition:"all .15s", marginBottom:-1,
+        <button key={t.id} onClick={() => setTab(t.id)} style={{
+          padding: "11px 20px", border: "none", background: "none",
+          borderBottom: tab === t.id ? `3px solid ${C.blue}` : "3px solid transparent",
+          color: tab === t.id ? C.blue : C.textMid,
+          fontWeight: tab === t.id ? 700 : 400,
+          fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+          marginBottom: -2, transition: "all .15s",
         }}>
-          <span style={{ fontSize:14 }}>{t.icon}</span>{t.label}
+          <span>{t.icon}</span>{t.label}
         </button>
       ))}
     </div>
   );
 };
 
-// ─── Page container ──────────────────────────────────────────
-const Page = ({ children }) => (
-  <div style={{ maxWidth:1100, margin:"0 auto", padding:"24px 24px" }}>{children}</div>
-);
-
-// ─── Card ────────────────────────────────────────────────────
-const Card = ({ children, style={} }) => (
-  <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:6, ...style }}>
+// ─── Card wrapper ─────────────────────────────────────────────
+const Card = ({ children, style = {} }) => (
+  <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", ...style }}>
     {children}
   </div>
 );
 
-// ─── Section header ──────────────────────────────────────────
-const SectionHeader = ({ title, count, extra }) => (
-  <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.borderLight}`, display:"flex", alignItems:"center", justifyContent:"space-between", background:C.bg, borderRadius:"6px 6px 0 0" }}>
-    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-      <span style={{ fontSize:13, fontWeight:700, color:C.text }}>{title}</span>
-      {count !== undefined && <span style={{ fontSize:11, background:C.blueMid, color:C.blue, padding:"1px 7px", borderRadius:99, fontWeight:700 }}>{count}</span>}
+// ─── Badge ────────────────────────────────────────────────────
+const Badge = ({ label, color = C.blue, bg }) => (
+  <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 3, background: bg || color + "18", color, fontWeight: 600, border: `1px solid ${color}30` }}>
+    {label}
+  </span>
+);
+
+// ─── Score Bar ────────────────────────────────────────────────
+const ScoreBar = ({ label, value, color, bg }) => (
+  <div style={{ minWidth: 80 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+      <span style={{ fontSize: 10, color: C.textLight, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color, fontFamily: "monospace" }}>{Math.round(value * 100)}%</span>
     </div>
-    {extra}
+    <div style={{ height: 5, background: C.borderLight, borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ height: "100%", width: `${Math.round(value * 100)}%`, background: color, borderRadius: 99, transition: "width .5s ease" }}/>
+    </div>
   </div>
 );
 
-// ─── Badge ───────────────────────────────────────────────────
-const Badge = ({ label, color=C.blue, bg=C.blueLight }) => (
-  <span style={{ fontSize:11, padding:"2px 8px", borderRadius:3, background:bg, color, fontWeight:600, border:`1px solid ${color}30` }}>{label}</span>
-);
-
-// ─── Score pill ──────────────────────────────────────────────
-const ScorePill = ({ label, value, color, bg }) => (
-  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"4px 10px", borderRadius:4, background:bg, border:`1px solid ${color}40`, minWidth:58 }}>
-    <span style={{ fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:"0.05em" }}>{label}</span>
-    <span style={{ fontSize:14, fontWeight:700, color, fontFamily:"monospace" }}>{(value*100).toFixed(0)}%</span>
-  </div>
-);
-
-// ─── Mode selector ───────────────────────────────────────────
+// ─── Mode Selector ────────────────────────────────────────────
 const ModeSelector = ({ mode, setMode }) => {
   const modes = [
-    { id:"hybrid",   label:"Hybrydowe",    desc:"FTS + Semantyczne" },
-    { id:"fts",      label:"Słów kluczowych", desc:"Dokładne frazy" },
-    { id:"semantic", label:"Semantyczne",  desc:"Znaczenie tekstu" },
+    { id: "hybrid",   label: "Hybrydowe",     desc: "FTS + AI" },
+    { id: "fts",      label: "Słów kluczowych", desc: "Dokładne" },
+    { id: "semantic", label: "Semantyczne",    desc: "Znaczenie" },
   ];
   return (
-    <div style={{ display:"flex", gap:0, border:`1px solid ${C.border}`, borderRadius:4, overflow:"hidden" }}>
-      {modes.map((m,i) => (
-        <button key={m.id} onClick={()=>setMode(m.id)} style={{
-          padding:"7px 14px", border:"none", borderRight: i<2 ? `1px solid ${C.border}` : "none",
-          background: mode===m.id ? C.blue : C.white,
-          color: mode===m.id ? "#fff" : C.textMid,
-          fontSize:12, fontWeight: mode===m.id ? 700 : 400,
-          cursor:"pointer", transition:"all .15s", lineHeight:1.3,
+    <div style={{ display: "flex", border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden", height: 38 }}>
+      {modes.map((m, i) => (
+        <button key={m.id} onClick={() => setMode(m.id)} style={{
+          padding: "0 14px", border: "none",
+          borderRight: i < 2 ? `1px solid ${C.border}` : "none",
+          background: mode === m.id ? C.blue : C.white,
+          color: mode === m.id ? "#fff" : C.textMid,
+          fontSize: 12, fontWeight: mode === m.id ? 700 : 400,
+          cursor: "pointer", transition: "all .15s", lineHeight: 1.3,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         }}>
           <div>{m.label}</div>
-          <div style={{ fontSize:10, opacity:.8 }}>{m.desc}</div>
+          <div style={{ fontSize: 9, opacity: .75 }}>{m.desc}</div>
         </button>
       ))}
     </div>
   );
 };
 
-// ─── Result row ──────────────────────────────────────────────
+// ─── Result Row ───────────────────────────────────────────────
 const ResultRow = ({ result, query, index }) => {
   const [exp, setExp] = useState(false);
   const hl = (text) => {
-    if (!query||!text) return text;
-    const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")})`, "gi");
-    return text.split(re).map((p,i) =>
-      re.test(p) ? <mark key={i} style={{ background:"#fff3cd", padding:"0 1px", borderRadius:2 }}>{p}</mark> : p
+    if (!query || !text) return text;
+    const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    return text.split(re).map((p, i) =>
+      re.test(p) ? <mark key={i} style={{ background: "#fff176", padding: "0 1px", borderRadius: 2 }}>{p}</mark> : p
     );
   };
+  const isGood = result.hybrid_score > 0.6 || result.semantic_score > 0.6;
   return (
-    <div style={{ borderBottom:`1px solid ${C.borderLight}`, transition:"background .15s" }}
-      onMouseEnter={e=>e.currentTarget.style.background=C.blueLight}
-      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-      <div style={{ padding:"12px 16px", display:"flex", alignItems:"flex-start", gap:12 }}>
-        {/* numer */}
-        <div style={{ width:24, height:24, borderRadius:12, background:C.blue, color:"#fff", fontSize:11, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>{index}</div>
-        {/* treść */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
-            <span style={{ fontSize:14, fontWeight:700, color:C.text }}>{hl(result.title)}</span>
-            {result.category && <Badge label={result.category} color={C.blue} bg={C.blueLight}/>}
+    <div style={{ borderBottom: `1px solid ${C.borderLight}`, transition: "background .12s" }}
+      onMouseEnter={e => e.currentTarget.style.background = C.blueLight}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+      <div style={{ padding: "11px 14px", display: "flex", alignItems: "flex-start", gap: 12 }}>
+        {/* rank */}
+        <div style={{ width: 26, height: 26, borderRadius: 13, background: isGood ? C.blue : C.border, color: isGood ? "#fff" : C.textLight, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+          {index}
+        </div>
+        {/* content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{hl(result.title)}</span>
+            {result.category && <Badge label={result.category}/>}
             {result.source_types.includes("attachment") && <Badge label="📎 załącznik" color={C.purple} bg={C.purpleBg}/>}
+            {isGood && <Badge label="✓ Wysoka trafność" color={C.green} bg={C.greenBg}/>}
           </div>
-          {result.summary && <div style={{ fontSize:12, color:C.textMid, lineHeight:1.6 }}>{hl(result.summary)}</div>}
-          {result.matched_chunks.length>0 && (
-            <button onClick={()=>setExp(e=>!e)} style={{ marginTop:6, background:"none", border:"none", cursor:"pointer", color:C.blue, fontSize:11, padding:0, fontWeight:600 }}>
-              {exp ? "▲ Ukryj fragment" : `▼ Pokaż fragment z załącznika (${result.matched_chunks.length})`}
+          {result.summary && <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.6, marginBottom: 4 }}>{hl(result.summary)}</div>}
+          {result.matched_chunks.length > 0 && (
+            <button onClick={() => setExp(e => !e)} style={{ background: "none", border: "none", cursor: "pointer", color: C.blue, fontSize: 11, padding: 0, fontWeight: 600 }}>
+              {exp ? "▲ Ukryj fragment" : `▼ Fragment z załącznika (${result.matched_chunks.length})`}
             </button>
           )}
-          {exp && result.matched_chunks.map((c,i)=>(
-            <div key={i} style={{ marginTop:6, padding:"8px 12px", background:"#fffbf0", border:`1px solid ${C.orange}40`, borderLeft:`3px solid ${C.orange}`, borderRadius:"0 4px 4px 0", fontSize:11, color:C.textMid, lineHeight:1.7 }}>
+          {exp && result.matched_chunks.map((c, i) => (
+            <div key={i} style={{ marginTop: 6, padding: "7px 10px", background: C.orangeBg, borderLeft: `3px solid ${C.orange}`, borderRadius: "0 3px 3px 0", fontSize: 11, color: C.textMid, lineHeight: 1.7 }}>
               …{hl(c)}…
             </div>
           ))}
         </div>
         {/* scores */}
-        <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-          <ScorePill label="FTS" value={result.fts_score} color={C.orange} bg={C.orangeBg}/>
-          <ScorePill label="Sem." value={result.semantic_score} color={C.green} bg={C.greenBg}/>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0, minWidth: 110 }}>
+          <ScoreBar label="FTS" value={result.fts_score} color={C.orange} bg={C.orangeBg}/>
+          <ScoreBar label="Semantic" value={result.semantic_score} color={C.green} bg={C.greenBg}/>
+          <ScoreBar label="Hybrid" value={result.hybrid_score} color={C.blue} bg={C.blueLight}/>
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Article row (browse) ─────────────────────────────────────
-const ArticleRow = ({ article, onSearch }) => (
-  <div style={{ padding:"10px 16px", borderBottom:`1px solid ${C.borderLight}`, display:"flex", alignItems:"center", gap:12, cursor:"pointer", transition:"background .15s" }}
-    onMouseEnter={e=>e.currentTarget.style.background=C.blueLight}
-    onMouseLeave={e=>e.currentTarget.style.background="transparent"}
-    onClick={()=>onSearch(article.title)}>
-    <div style={{ width:32, height:32, background:C.blueLight, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>📄</div>
-    <div style={{ flex:1 }}>
-      <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{article.title}</div>
-      {article.summary && <div style={{ fontSize:11, color:C.textLight, marginTop:2 }}>{article.summary}</div>}
+// ─── Article Row (browse) ─────────────────────────────────────
+const ArticleRow = ({ article, onSearch, index }) => (
+  <div style={{ padding: "9px 14px", borderBottom: `1px solid ${C.borderLight}`, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", transition: "background .12s" }}
+    onMouseEnter={e => e.currentTarget.style.background = C.blueLight}
+    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+    onClick={() => onSearch(article.title)}>
+    <div style={{ width: 26, height: 26, borderRadius: 3, background: C.blueLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, color: C.blue, fontWeight: 700, fontSize: 11 }}>{index}</div>
+    <div style={{ width: 28, height: 28, background: C.blueLight, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>📄</div>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: C.blue }}>{article.title}</div>
+      {article.summary && <div style={{ fontSize: 11, color: C.textLight, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{article.summary}</div>}
     </div>
     {article.category && <Badge label={article.category}/>}
-    <div style={{ fontSize:11, color:C.blue, fontWeight:600, flexShrink:0 }}>Wyszukaj →</div>
+    <div style={{ fontSize: 11, color: C.blue, fontWeight: 600, flexShrink: 0 }}>Szukaj →</div>
   </div>
 );
 
-// ─── Form field ──────────────────────────────────────────────
-const Field = ({ label, required, children }) => (
-  <div style={{ marginBottom:16 }}>
-    <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.text, marginBottom:5 }}>
-      {label} {required && <span style={{ color:C.red }}>*</span>}
-    </label>
-    {children}
+// ─── Form Input ───────────────────────────────────────────────
+const FLabel = ({ label, required }) => (
+  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 4 }}>
+    {label} {required && <span style={{ color: C.red }}>*</span>}
   </div>
 );
-
-const inputStyle = { width:"100%", border:`1px solid ${C.border}`, borderRadius:4, padding:"8px 10px", fontSize:13, color:C.text, outline:"none", boxSizing:"border-box", fontFamily:"inherit", background:C.white };
-const InputField = ({ value, onChange, placeholder }) => <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={inputStyle}/>;
-const TextArea   = ({ value, onChange, placeholder, rows=6 }) => <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{ ...inputStyle, resize:"vertical" }}/>;
-
-// ─── Info section ────────────────────────────────────────────
-const InfoBlock = ({ icon, title, color, children }) => (
-  <Card style={{ marginBottom:16 }}>
-    <SectionHeader title={<span>{icon} {title}</span>} />
-    <div style={{ padding:"16px" }}>{children}</div>
-  </Card>
+const inp = { width: "100%", border: `1px solid ${C.border}`, borderRadius: 3, padding: "7px 10px", fontSize: 13, color: C.text, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: C.white, transition: "border-color .15s" };
+const FInput = ({ value, onChange, placeholder }) => (
+  <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={inp}
+    onFocus={e => e.target.style.borderColor = C.blue}
+    onBlur={e => e.target.style.borderColor = C.border}/>
+);
+const FTextarea = ({ value, onChange, placeholder, rows = 6 }) => (
+  <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{ ...inp, resize: "vertical" }}
+    onFocus={e => e.target.style.borderColor = C.blue}
+    onBlur={e => e.target.style.borderColor = C.border}/>
 );
 
-const InfoP = ({ children }) => <p style={{ margin:"0 0 10px", fontSize:13, color:C.textMid, lineHeight:1.8 }}>{children}</p>;
-const Tech = ({ label, desc, color=C.blue }) => (
-  <div style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:10 }}>
-    <Badge label={label} color={color} bg={color+"15"}/>
-    <span style={{ fontSize:13, color:C.textMid }}>{desc}</span>
-  </div>
-);
-
-const ModeInfo = ({ icon, name, color, bg, how, good, bad }) => (
-  <div style={{ border:`1px solid ${C.border}`, borderRadius:4, marginBottom:10, overflow:"hidden" }}>
-    <div style={{ padding:"8px 12px", background:bg, borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:8 }}>
-      <span>{icon}</span>
-      <span style={{ fontWeight:700, color, fontSize:13 }}>{name}</span>
-    </div>
-    <div style={{ padding:"10px 12px" }}>
-      <div style={{ fontSize:12, color:C.textMid, marginBottom:6 }}><strong style={{ color:C.text }}>Jak działa:</strong> {how}</div>
-      <div style={{ fontSize:12, color:C.green, marginBottom:4 }}>✅ Dobre gdy: {good}</div>
-      <div style={{ fontSize:12, color:C.red }}>⚠ Słabsze gdy: {bad}</div>
+// ─── Stat Box ─────────────────────────────────────────────────
+const StatBox = ({ icon, value, label, color, sub }) => (
+  <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 4, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+    <div style={{ width: 42, height: 42, borderRadius: 4, background: color + "18", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{icon}</div>
+    <div>
+      <div style={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>{label}</div>
+      {sub && <div style={{ fontSize: 10, color: C.textLight }}>{sub}</div>}
     </div>
   </div>
 );
 
-// ─── Toast ───────────────────────────────────────────────────
+// ─── Toast ────────────────────────────────────────────────────
 const Toast = ({ msg, type }) => msg ? (
-  <div style={{ position:"fixed", bottom:24, right:24, padding:"12px 18px", borderRadius:4, background: type==="ok"?C.greenBg:C.redBg, border:`1px solid ${type==="ok"?C.green:C.red}`, color: type==="ok"?C.green:C.red, fontSize:13, fontWeight:600, zIndex:9999, boxShadow:"0 4px 12px rgba(0,0,0,0.1)" }}>
-    {type==="ok"?"✅":"❌"} {msg}
+  <div style={{ position: "fixed", bottom: 20, right: 20, padding: "12px 18px", borderRadius: 4, background: type === "ok" ? C.greenBg : C.redBg, border: `1px solid ${type === "ok" ? C.green : C.red}`, color: type === "ok" ? C.green : C.red, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
+    {type === "ok" ? "✅" : "❌"} {msg}
   </div>
 ) : null;
 
-// ─── Stat box ────────────────────────────────────────────────
-const StatBox = ({ icon, value, label, color }) => (
-  <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:6, padding:"16px 20px", display:"flex", alignItems:"center", gap:14 }}>
-    <div style={{ width:40, height:40, borderRadius:6, background:color+"18", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>{icon}</div>
-    <div>
-      <div style={{ fontSize:24, fontWeight:800, color }}>{value}</div>
-      <div style={{ fontSize:12, color:C.textLight }}>{label}</div>
-    </div>
+// ─── Info Tab ─────────────────────────────────────────────────
+const InfoTab = () => (
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+    {/* O module */}
+    <Card>
+      <SectionHead title="O module" icon="💡"/>
+      <div style={{ padding: 16 }}>
+        <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.8, margin: "0 0 10px" }}>
+          Moduł <strong>Wyszukiwarki AI</strong> dla BASELine umożliwia inteligentne przeszukiwanie bazy wiedzy. Rozumie znaczenie pytań — nie tylko szuka słów kluczowych.
+        </p>
+        <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.8, margin: 0 }}>
+          Przykład: zapytanie <em>"nie mogę wejść na konto"</em> znajdzie artykuł <em>"Procedura odzyskiwania dostępu"</em> — bez użycia tych samych słów.
+        </p>
+        <div style={{ marginTop: 14, padding: "10px 12px", background: C.blueLight, borderRadius: 3, border: `1px solid ${C.blueMid}` }}>
+          <div style={{ fontSize: 11, color: C.blue, fontWeight: 700, marginBottom: 4 }}>STWORZONO</div>
+          <div style={{ fontSize: 12, color: C.textMid }}>🧠 WojnaR & Claude AI (Anthropic)</div>
+          <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>Projekt zbudowany w całości z pomocą AI w jednej sesji</div>
+        </div>
+      </div>
+    </Card>
+
+    {/* Tryby */}
+    <Card>
+      <SectionHead title="Tryby wyszukiwania" icon="🔍"/>
+      <div style={{ padding: 16 }}>
+        {[
+          { icon: "⚡", name: "Słów kluczowych (FTS)", color: C.orange, desc: 'Szuka dokładnych słów jak Ctrl+F. "hasło" znajdzie "hasła", "hasłem". Szybkie i precyzyjne dla znanych fraz.', good: "znasz dokładną frazę" },
+          { icon: "🧠", name: "Semantyczne", color: C.green, desc: "Rozumie znaczenie — model AI zamienia tekst na wektor 384 liczb i porównuje podobieństwo matematyczne.", good: "opisujesz problem własnymi słowami" },
+          { icon: "🔀", name: "Hybrydowe (domyślne)", color: C.blue, desc: "Łączy oba tryby algorytmem RRF. Artykuł wysoko w obu listach = najwyższy wynik końcowy.", good: "w większości przypadków" },
+        ].map(m => (
+          <div key={m.name} style={{ marginBottom: 12, padding: "10px 12px", border: `1px solid ${m.color}30`, borderRadius: 3, background: m.color + "08" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+              <span>{m.icon}</span>
+              <span style={{ fontWeight: 700, color: m.color, fontSize: 12 }}>{m.name}</span>
+            </div>
+            <div style={{ fontSize: 11, color: C.textMid, lineHeight: 1.6 }}>{m.desc}</div>
+            <div style={{ fontSize: 11, color: C.green, marginTop: 4 }}>✅ Użyj gdy: {m.good}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+
+    {/* Scoring */}
+    <Card>
+      <SectionHead title="Jak działają procenty?" icon="📊"/>
+      <div style={{ padding: 16 }}>
+        {[
+          { label: "FTS %", color: C.orange, desc: "Wynik dopasowania słów kluczowych. Najlepszy wynik w zapytaniu = 100%, pozostałe proporcjonalnie mniej." },
+          { label: "Semantic %", color: C.green, desc: "Cosine similarity między wektorami — miara kąta między punktami w przestrzeni 384-wymiarowej. 100% = identyczne znaczenie, 50-70% = powiązany temat." },
+          { label: "Hybrid %", color: C.blue, desc: "Algorytm RRF: każdy artykuł dostaje 1/(60+pozycja) z obu list. Znormalizowane do 100% — pokazuje ogólną trafność." },
+        ].map(s => (
+          <div key={s.label} style={{ marginBottom: 12, display: "flex", gap: 10 }}>
+            <div style={{ width: 80, flexShrink: 0 }}>
+              <div style={{ background: s.color, color: "#fff", padding: "3px 8px", borderRadius: 3, fontSize: 11, fontWeight: 700, textAlign: "center" }}>{s.label}</div>
+            </div>
+            <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.6 }}>{s.desc}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+
+    {/* Technologie */}
+    <Card>
+      <SectionHead title="Technologie" icon="🛠"/>
+      <div style={{ padding: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {[
+            { t: "Python 3.12",    d: "Język backendu",          c: C.orange },
+            { t: "FastAPI",        d: "REST API framework",       c: C.green },
+            { t: "SQLite + FTS5",  d: "Baza danych + full-text",  c: C.blue },
+            { t: "fastembed AI",   d: "Model embeddingów ~130MB", c: C.purple },
+            { t: "Railway",        d: "Hosting backendu",         c: C.blue },
+            { t: "Vercel",         d: "Hosting frontendu",        c: "#000" },
+            { t: "React + Vite",   d: "Frontend framework",       c: "#61dafb" },
+            { t: "RRF Ranking",    d: "Algorytm hybrydowy",       c: C.orange },
+          ].map(x => (
+            <div key={x.t} style={{ padding: "6px 8px", border: `1px solid ${x.c}30`, borderRadius: 3, background: x.c + "08" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: x.c }}>{x.t}</div>
+              <div style={{ fontSize: 10, color: C.textLight }}>{x.d}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
   </div>
 );
 
 // ─── MAIN APP ─────────────────────────────────────────────────
 export default function App() {
-  const [query, setQuery]       = useState("");
-  const [mode, setMode]         = useState("hybrid");
-  const [results, setResults]   = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [error, setError]       = useState(null);
-  const [tab, setTab]           = useState("search");
+  const [query, setQuery]         = useState("");
+  const [mode, setMode]           = useState("hybrid");
+  const [results, setResults]     = useState([]);
+  const [loading, setLoading]     = useState(false);
+  const [searched, setSearched]   = useState(false);
+  const [error, setError]         = useState(null);
+  const [tab, setTab]             = useState("search");
+  const [lastSearch, setLastSearch] = useState(null);
 
-  const [articles, setArticles]           = useState([]);
-  const [browseLoading, setBrowseLoading] = useState(false);
-  const [selCat, setSelCat]               = useState(null);
-  const [toast, setToast]                 = useState(null);
+  const [articles, setArticles]             = useState([]);
+  const [browseLoading, setBrowseLoading]   = useState(false);
+  const [selCat, setSelCat]                 = useState(null);
+  const [lastRefresh, setLastRefresh]       = useState(null);
+  const [toast, setToast]                   = useState(null);
 
   // add form
-  const [title, setTitle]     = useState("");
-  const [summary, setSummary] = useState("");
-  const [content, setContent] = useState("");
-  const [author, setAuthor]   = useState("");
-  const [saving, setSaving]   = useState(false);
-  const [savedId, setSavedId] = useState(null);
-  const [file, setFile]       = useState(null);
+  const [title, setTitle]       = useState("");
+  const [summary, setSummary]   = useState("");
+  const [content, setContent]   = useState("");
+  const [author, setAuthor]     = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [savedId, setSavedId]   = useState(null);
+  const [file, setFile]         = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
-  const showToast = (msg, type="ok") => { setToast({msg,type}); setTimeout(()=>setToast(null),4000); };
-
-  useEffect(()=>{ if(tab==="browse"&&articles.length===0) loadArticles(); },[tab]);
-
-  const loadArticles = async () => {
-    setBrowseLoading(true);
-    try {
-      // użyj dedykowanego endpointu który zwraca wszystkie artykuły
-      const res = await fetch(`${API_BASE}/articles/list`);
-      if(res.ok) {
-        const data = await res.json();
-        // mapuj do formatu zgodnego z resztą komponentu
-        setArticles(data.map(a => ({ ...a, article_id: a.id })));
-      }
-    } catch(e){ console.error(e); }
-    finally{ setBrowseLoading(false); }
+  const showToast = (msg, type = "ok") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
   };
 
-  const doSearch = useCallback(async (q=query) => {
-    if(!q.trim()) return;
-    setLoading(true); setError(null); setSearched(true); setTab("search");
+  // ── Auto-refresh artykułów co 30s gdy na zakładce browse ──
+  const refreshArticles = useCallback(async (silent = false) => {
+    if (!silent) setBrowseLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/articles/list`);
+      if (res.ok) {
+        const data = await res.json();
+        setArticles(data.map(a => ({ ...a, article_id: a.id })));
+        setLastRefresh(new Date());
+      }
+    } catch (e) { console.error(e); }
+    finally { if (!silent) setBrowseLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "browse") refreshArticles();
+  }, [tab]);
+
+  // auto-refresh co 30s gdy na browse
+  useAutoRefresh(() => refreshArticles(true), 30000, tab === "browse");
+
+  // ── Auto-refresh wyników wyszukiwania co 60s ──
+  const doSearch = useCallback(async (q = query, silent = false) => {
+    if (!q.trim()) return;
+    if (!silent) { setLoading(true); setError(null); setSearched(true); }
     try {
       const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}&mode=${mode}&top_k=10`);
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setResults(await res.json());
-    } catch(e){ setError("Błąd połączenia z serwerem."); }
-    finally{ setLoading(false); }
-  },[query,mode]);
+      setLastSearch(new Date());
+    } catch (e) {
+      if (!silent) setError("Błąd połączenia z serwerem.");
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [query, mode]);
+
+  // auto-refresh wyników co 60s gdy mamy aktywne wyszukiwanie
+  useAutoRefresh(() => { if (searched && query) doSearch(query, true); }, 60000, searched && tab === "search");
 
   const handleSave = async () => {
-    if(!title.trim()||!content.trim()) return;
+    if (!title.trim() || !content.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/articles`, { method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ title:title.trim(), slug:slugify(title), summary:summary.trim()||null, content:content.trim(), author:author.trim()||null, category_id:null }) });
-      if(!res.ok) throw new Error(await res.text());
+      const res = await fetch(`${API_BASE}/articles`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), slug: slugify(title), summary: summary.trim() || null, content: content.trim(), author: author.trim() || null, category_id: null }),
+      });
+      if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setSavedId(data.id);
-      showToast(`Artykuł "${title}" zapisany (ID: ${data.id})`);
-    } catch(e){ showToast(`Błąd: ${e.message}`,"err"); }
-    finally{ setSaving(false); }
+      showToast(`✅ Artykuł "${title}" zapisany (ID: ${data.id})`);
+    } catch (e) { showToast(`Błąd: ${e.message}`, "err"); }
+    finally { setSaving(false); }
   };
 
   const handleUpload = async () => {
-    if(!file||!savedId) return;
+    if (!file || !savedId) return;
     setUploading(true);
     try {
-      const fd = new FormData(); fd.append("file",file);
-      const res = await fetch(`${API_BASE}/articles/${savedId}/attachments`,{method:"POST",body:fd});
-      if(!res.ok) throw new Error(await res.text());
-      showToast(`Załącznik "${file.name}" wgrany i zaindeksowany`);
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch(`${API_BASE}/articles/${savedId}/attachments`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      showToast(`✅ Załącznik "${file.name}" wgrany i zaindeksowany`);
       setFile(null);
-    } catch(e){ showToast(`Błąd: ${e.message}`,"err"); }
-    finally{ setUploading(false); }
+    } catch (e) { showToast(`Błąd: ${e.message}`, "err"); }
+    finally { setUploading(false); }
   };
 
   const resetForm = () => { setTitle(""); setSummary(""); setContent(""); setAuthor(""); setSavedId(null); setFile(null); };
-  const cats = [...new Set(articles.map(a=>a.category).filter(Boolean))];
-  const filtered = selCat ? articles.filter(a=>a.category===selCat) : articles;
+
+  const cats = [...new Set(articles.map(a => a.category).filter(Boolean))];
+  const filtered = selCat ? articles.filter(a => a.category === selCat) : articles;
+
+  const fmtTime = (d) => d ? d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : null;
 
   return (
-    <div style={{ fontFamily:"'Segoe UI', 'Trebuchet MS', Arial, sans-serif", background:C.bg, minHeight:"100vh", color:C.text }}>
-      <TopBar/>
-      <TabBar tab={tab} setTab={setTab}/>
+    <div style={{ fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif", background: C.bg, minHeight: "100vh", color: C.text }}>
+      <Header/>
+      <TabNav tab={tab} setTab={setTab}/>
 
-      <Page>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 20px" }}>
 
         {/* ── SEARCH ── */}
-        {tab==="search" && (
+        {tab === "search" && (
           <>
-            {/* Search bar */}
-            <Card style={{ marginBottom:16, padding:"16px" }}>
-              <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
-                <div style={{ flex:1, minWidth:240, display:"flex", border:`1px solid ${C.border}`, borderRadius:4, overflow:"hidden" }}>
-                  <div style={{ padding:"0 12px", display:"flex", alignItems:"center", background:C.bg, borderRight:`1px solid ${C.border}` }}>
-                    <span style={{ fontSize:16, color:C.textLight }}>🔍</span>
+            {/* Search panel */}
+            <Card style={{ marginBottom: 16 }}>
+              <SectionHead title="Wyszukiwanie w bazie wiedzy" icon="🔍"
+                right={lastSearch && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>ostatnie: {fmtTime(lastSearch)}</span>}
+              />
+              <div style={{ padding: "14px 14px 10px" }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 280, display: "flex", border: `1px solid ${C.border}`, borderRadius: 3, overflow: "hidden", background: C.white }}>
+                    <div style={{ padding: "0 12px", display: "flex", alignItems: "center", background: C.bg, borderRight: `1px solid ${C.border}` }}>
+                      <span style={{ color: C.textLight }}>🔍</span>
+                    </div>
+                    <input value={query} onChange={e => setQuery(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && doSearch()}
+                      placeholder="Wpisz zapytanie lub opis problemu..."
+                      style={{ flex: 1, border: "none", outline: "none", padding: "9px 12px", fontSize: 13, color: C.text, background: C.white }}/>
+                    {query && <button onClick={() => { setQuery(""); setResults([]); setSearched(false); }} style={{ padding: "0 10px", border: "none", background: "none", cursor: "pointer", color: C.textLight, fontSize: 16 }}>×</button>}
                   </div>
-                  <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}
-                    placeholder="Wyszukaj artykuł lub treść załącznika..."
-                    style={{ flex:1, border:"none", outline:"none", padding:"9px 12px", fontSize:13, color:C.text, background:C.white }}/>
+                  <ModeSelector mode={mode} setMode={setMode}/>
+                  <button onClick={() => doSearch()} disabled={loading || !query.trim()} style={{
+                    padding: "0 22px", height: 38, borderRadius: 3, border: "none",
+                    background: (!query.trim() || loading) ? C.border : C.blue,
+                    color: (!query.trim() || loading) ? C.textLight : "#fff",
+                    fontWeight: 700, fontSize: 13, cursor: (!query.trim() || loading) ? "not-allowed" : "pointer",
+                    transition: "background .15s",
+                  }}>{loading ? "⏳ Szukam…" : "Szukaj"}</button>
+                  {searched && <button onClick={() => doSearch(query, true)} title="Odśwież wyniki" style={{ padding: "0 12px", height: 38, borderRadius: 3, border: `1px solid ${C.border}`, background: C.white, color: C.blue, cursor: "pointer", fontSize: 14 }}>🔄</button>}
                 </div>
-                <ModeSelector mode={mode} setMode={setMode}/>
-                <button onClick={()=>doSearch()} disabled={loading||!query.trim()} style={{
-                  padding:"9px 20px", borderRadius:4, border:"none",
-                  background: (!query.trim()||loading) ? C.border : C.blue,
-                  color: (!query.trim()||loading) ? C.textLight : "#fff",
-                  fontWeight:700, fontSize:13, cursor: (!query.trim()||loading) ? "not-allowed":"pointer",
-                }}>{loading ? "Szukam…" : "Szukaj"}</button>
-              </div>
-              {/* quick tags */}
-              <div style={{ marginTop:10, display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
-                <span style={{ fontSize:11, color:C.textLight }}>Szybkie wyszukiwanie:</span>
-                {["hasło","VPN","backup","onboarding","2FA","bezpieczeństwo","certyfikat"].map(s=>(
-                  <button key={s} onClick={()=>{setQuery(s);doSearch(s);}} style={{ padding:"2px 10px", borderRadius:3, border:`1px solid ${C.border}`, background:C.white, color:C.textMid, fontSize:11, cursor:"pointer" }}>{s}</button>
-                ))}
+                {/* Quick tags */}
+                <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: C.textLight }}>Szybkie wyszukiwanie:</span>
+                  {["hasło", "VPN", "backup", "onboarding", "2FA", "certyfikat", "dostęp", "umowa"].map(s => (
+                    <button key={s} onClick={() => { setQuery(s); doSearch(s); }} style={{ padding: "2px 10px", borderRadius: 3, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 11, cursor: "pointer", transition: "all .1s" }}
+                      onMouseEnter={e => { e.target.style.background = C.blueLight; e.target.style.color = C.blue; }}
+                      onMouseLeave={e => { e.target.style.background = C.white; e.target.style.color = C.textMid; }}
+                    >{s}</button>
+                  ))}
+                </div>
               </div>
             </Card>
 
-            {/* Results */}
-            {error && <div style={{ padding:"10px 14px", background:C.redBg, border:`1px solid ${C.red}40`, borderRadius:4, color:C.red, fontSize:13, marginBottom:12 }}>⚠ {error}</div>}
+            {error && <div style={{ padding: "10px 14px", background: C.redBg, border: `1px solid ${C.red}40`, borderRadius: 3, color: C.red, fontSize: 13, marginBottom: 12 }}>⚠ {error}</div>}
 
             {loading && (
-              <Card style={{ padding:"40px", textAlign:"center" }}>
-                <div style={{ fontSize:13, color:C.textLight }}>⏳ Przeszukuję bazę wiedzy…</div>
+              <Card style={{ padding: "40px", textAlign: "center" }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+                <div style={{ fontSize: 13, color: C.textLight }}>Przeszukuję bazę wiedzy…</div>
               </Card>
             )}
 
-            {!loading && searched && results.length===0 && !error && (
-              <Card style={{ padding:"40px", textAlign:"center" }}>
-                <div style={{ fontSize:32, marginBottom:8 }}>🔍</div>
-                <div style={{ fontSize:14, color:C.textMid }}>Brak wyników dla zapytania <strong>"{query}"</strong></div>
-                <div style={{ fontSize:12, color:C.textLight, marginTop:4 }}>Spróbuj innych słów kluczowych lub trybu semantycznego</div>
+            {!loading && searched && results.length === 0 && !error && (
+              <Card style={{ padding: "40px", textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                <div style={{ fontSize: 14, color: C.textMid, fontWeight: 600 }}>Brak wyników dla: <em>"{query}"</em></div>
+                <div style={{ fontSize: 12, color: C.textLight, marginTop: 4 }}>Spróbuj trybu semantycznego lub innych słów kluczowych</div>
               </Card>
             )}
 
-            {!loading && results.length>0 && (
+            {!loading && results.length > 0 && (
               <Card>
-                <SectionHeader title="Wyniki wyszukiwania" count={results.length}
-                  extra={<span style={{ fontSize:12, color:C.textLight }}>tryb: <strong style={{ color:C.blue }}>{mode}</strong></span>}/>
-                {results.map((r,i)=><ResultRow key={r.article_id} result={r} query={query} index={i+1}/>)}
+                <SectionHead title="Wyniki wyszukiwania" count={results.length}
+                  right={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>tryb: <strong style={{ color: "#fff" }}>{mode}</strong> {lastSearch && `• ${fmtTime(lastSearch)}`}</span>}
+                />
+                {results.map((r, i) => <ResultRow key={r.article_id} result={r} query={query} index={i + 1}/>)}
               </Card>
             )}
 
             {!searched && !loading && (
-              <Card style={{ padding:"48px", textAlign:"center" }}>
-                <div style={{ width:60, height:60, background:C.blueLight, borderRadius:8, margin:"0 auto 16px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>📚</div>
-                <div style={{ fontSize:15, fontWeight:600, color:C.text, marginBottom:6 }}>Wyszukaj w bazie wiedzy</div>
-                <div style={{ fontSize:13, color:C.textLight }}>Wpisz zapytanie lub skorzystaj z szybkich tagów powyżej</div>
+              <Card style={{ padding: "56px", textAlign: "center" }}>
+                <div style={{ width: 64, height: 64, background: C.blueLight, borderRadius: 8, margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>📚</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 6 }}>Wyszukaj w bazie wiedzy</div>
+                <div style={{ fontSize: 13, color: C.textLight, maxWidth: 400, margin: "0 auto" }}>
+                  Wpisz pytanie, opis problemu lub słowa kluczowe. System rozumie znaczenie — nie musisz znać dokładnych fraz.
+                </div>
               </Card>
             )}
           </>
         )}
 
         {/* ── BROWSE ── */}
-        {tab==="browse" && (
+        {tab === "browse" && (
           <>
             {/* Stats */}
-            <div style={{ display:"flex", gap:12, marginBottom:16, flexWrap:"wrap" }}>
-              <StatBox icon="📄" value={articles.length} label="Artykuły w bazie" color={C.blue}/>
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+              <StatBox icon="📄" value={articles.length} label="Artykuły w bazie" color={C.blue} sub={lastRefresh ? `odświeżono: ${fmtTime(lastRefresh)}` : null}/>
               <StatBox icon="🗂" value={cats.length} label="Kategorie" color={C.green}/>
+              <StatBox icon="🔄" value="auto" label="Auto-odświeżanie" color={C.orange} sub="co 30 sekund"/>
             </div>
 
-            {browseLoading && <Card style={{ padding:40, textAlign:"center" }}><span style={{ color:C.textLight }}>⏳ Ładowanie artykułów…</span></Card>}
+            {browseLoading && <Card style={{ padding: 40, textAlign: "center" }}><span style={{ color: C.textLight }}>⏳ Ładowanie artykułów…</span></Card>}
 
             {!browseLoading && (
               <Card>
-                <SectionHeader title="Lista artykułów"
-                  extra={
-                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                      <button onClick={()=>setSelCat(null)} style={{ padding:"2px 10px", borderRadius:3, border:`1px solid`, borderColor:!selCat?C.blue:C.border, background:!selCat?C.blueLight:C.white, color:!selCat?C.blue:C.textMid, fontSize:11, cursor:"pointer" }}>Wszystkie</button>
-                      {cats.map(c=>(
-                        <button key={c} onClick={()=>setSelCat(c===selCat?null:c)} style={{ padding:"2px 10px", borderRadius:3, border:`1px solid`, borderColor:selCat===c?C.blue:C.border, background:selCat===c?C.blueLight:C.white, color:selCat===c?C.blue:C.textMid, fontSize:11, cursor:"pointer" }}>{c}</button>
+                <SectionHead title="Lista artykułów" count={filtered.length}
+                  right={
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <button onClick={() => { setSelCat(null); }} style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid rgba(255,255,255,0.3)", background: !selCat ? "rgba(255,255,255,0.2)" : "transparent", color: "#fff", fontSize: 11, cursor: "pointer" }}>Wszystkie</button>
+                      {cats.map(c => (
+                        <button key={c} onClick={() => setSelCat(c === selCat ? null : c)} style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid rgba(255,255,255,0.3)", background: selCat === c ? "rgba(255,255,255,0.2)" : "transparent", color: "#fff", fontSize: 11, cursor: "pointer" }}>{c}</button>
                       ))}
+                      <button onClick={() => refreshArticles()} title="Odśwież" style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", fontSize: 11, cursor: "pointer" }}>🔄 Odśwież</button>
                     </div>
                   }
                 />
-                {filtered.length===0
-                  ? <div style={{ padding:32, textAlign:"center", color:C.textLight, fontSize:13 }}>Brak artykułów. Dodaj je w zakładce "Dodaj artykuł".</div>
-                  : filtered.map(a=><ArticleRow key={a.article_id} article={a} onSearch={t=>{setQuery(t);doSearch(t);}}/>)
-                }
-                <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.borderLight}` }}>
-                  <button onClick={()=>{setArticles([]);loadArticles();}} style={{ padding:"4px 12px", borderRadius:3, border:`1px solid ${C.border}`, background:C.white, color:C.textMid, fontSize:12, cursor:"pointer" }}>🔄 Odśwież listę</button>
+                {/* table header */}
+                <div style={{ display: "flex", padding: "6px 14px", background: C.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.textLight, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <div style={{ width: 26, marginRight: 12 }}>#</div>
+                  <div style={{ width: 28, marginRight: 12 }}></div>
+                  <div style={{ flex: 1 }}>Nazwa</div>
+                  <div style={{ width: 120 }}>Kategoria</div>
+                  <div style={{ width: 80, textAlign: "right" }}>Akcja</div>
                 </div>
+                {filtered.length === 0
+                  ? <div style={{ padding: 32, textAlign: "center", color: C.textLight, fontSize: 13 }}>Brak artykułów. Dodaj je w zakładce "Dodaj".</div>
+                  : filtered.map((a, i) => <ArticleRow key={a.article_id} article={a} index={i + 1} onSearch={t => { setQuery(t); setTab("search"); doSearch(t); }}/>)
+                }
               </Card>
             )}
           </>
         )}
 
         {/* ── ADD ── */}
-        {tab==="add" && (
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-            {/* Krok 1 */}
+        {tab === "add" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <Card>
-              <SectionHeader title="Krok 1 — Treść artykułu"/>
-              <div style={{ padding:"16px" }}>
-                <Field label="Tytuł artykułu" required><InputField value={title} onChange={setTitle} placeholder="np. Jak skonfigurować VPN"/></Field>
-                <Field label="Krótki opis (summary)"><InputField value={summary} onChange={setSummary} placeholder="Jednozdaniowy opis"/></Field>
-                <Field label="Treść artykułu" required><TextArea value={content} onChange={setContent} placeholder="Pełna treść artykułu (Markdown jest OK)..." rows={8}/></Field>
-                <Field label="Autor"><InputField value={author} onChange={setAuthor} placeholder="np. Jan Kowalski"/></Field>
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={handleSave} disabled={saving||!title.trim()||!content.trim()} style={{
-                    padding:"8px 20px", borderRadius:4, border:"none",
-                    background:(!title.trim()||!content.trim())?C.border:C.blue,
-                    color:(!title.trim()||!content.trim())?C.textLight:"#fff",
-                    fontWeight:700, fontSize:13, cursor:(!title.trim()||!content.trim())?"not-allowed":"pointer",
-                  }}>{saving?"Zapisuję…":savedId?"✅ Zapisano":"💾 Zapisz artykuł"}</button>
-                  {savedId && <button onClick={resetForm} style={{ padding:"8px 14px", borderRadius:4, border:`1px solid ${C.border}`, background:C.white, color:C.textMid, fontSize:13, cursor:"pointer" }}>Nowy artykuł</button>}
+              <SectionHead title="Krok 1 — Treść artykułu" icon="📝"/>
+              <div style={{ padding: 16 }}>
+                <div style={{ marginBottom: 12 }}><FLabel label="Nazwa artykułu" required/><FInput value={title} onChange={setTitle} placeholder="np. Jak skonfigurować VPN"/></div>
+                <div style={{ marginBottom: 12 }}><FLabel label="Opis (summary)"/><FInput value={summary} onChange={setSummary} placeholder="Jednozdaniowy opis"/></div>
+                <div style={{ marginBottom: 12 }}><FLabel label="Treść artykułu" required/><FTextarea value={content} onChange={setContent} placeholder="Pełna treść artykułu..." rows={8}/></div>
+                <div style={{ marginBottom: 16 }}><FLabel label="Autor"/><FInput value={author} onChange={setAuthor} placeholder="np. Jan Kowalski"/></div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} style={{ padding: "8px 20px", borderRadius: 3, border: "none", background: (!title.trim() || !content.trim()) ? C.border : C.blue, color: (!title.trim() || !content.trim()) ? C.textLight : "#fff", fontWeight: 700, fontSize: 13, cursor: (!title.trim() || !content.trim()) ? "not-allowed" : "pointer" }}>
+                    {saving ? "⏳ Zapisuję…" : savedId ? "✅ Zapisano!" : "💾 Zapisz artykuł"}
+                  </button>
+                  {savedId && <button onClick={resetForm} style={{ padding: "8px 14px", borderRadius: 3, border: `1px solid ${C.border}`, background: C.white, color: C.textMid, fontSize: 13, cursor: "pointer" }}>+ Nowy</button>}
                 </div>
               </div>
             </Card>
 
-            {/* Krok 2 */}
-            <Card style={{ opacity:savedId?1:0.5 }}>
-              <SectionHeader title="Krok 2 — Załącznik (opcjonalnie)"/>
-              <div style={{ padding:"16px" }}>
-                {!savedId && <div style={{ padding:"10px 12px", background:C.orangeBg, border:`1px solid ${C.orange}40`, borderRadius:4, fontSize:12, color:"#856404", marginBottom:12 }}>ℹ Najpierw zapisz artykuł w Kroku 1</div>}
+            <Card style={{ opacity: savedId ? 1 : 0.55 }}>
+              <SectionHead title="Krok 2 — Załącznik (opcjonalnie)" icon="📎"/>
+              <div style={{ padding: 16 }}>
+                {!savedId && <div style={{ padding: "8px 12px", background: C.orangeBg, border: `1px solid ${C.orange}40`, borderRadius: 3, fontSize: 12, color: "#856404", marginBottom: 12 }}>ℹ Najpierw zapisz artykuł w Kroku 1</div>}
                 <div
-                  onClick={()=>savedId&&fileRef.current?.click()}
-                  onDragOver={e=>e.preventDefault()}
-                  onDrop={e=>{e.preventDefault();if(savedId)setFile(e.dataTransfer.files[0]);}}
-                  style={{ border:`2px dashed ${file?C.green:C.border}`, borderRadius:4, padding:"32px 16px", textAlign:"center", cursor:savedId?"pointer":"not-allowed", background:file?C.greenBg:C.bg, marginBottom:12 }}>
-                  <div style={{ fontSize:28, marginBottom:8 }}>{file?"📎":"📂"}</div>
+                  onClick={() => savedId && fileRef.current?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); if (savedId) setFile(e.dataTransfer.files[0]); }}
+                  style={{ border: `2px dashed ${file ? C.green : C.border}`, borderRadius: 3, padding: "28px 16px", textAlign: "center", cursor: savedId ? "pointer" : "not-allowed", background: file ? C.greenBg : C.bg, marginBottom: 12, transition: "all .2s" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>{file ? "📎" : "📂"}</div>
                   {file
-                    ? <div style={{ fontSize:13, fontWeight:600, color:C.green }}>{file.name}<br/><span style={{ fontSize:11, fontWeight:400, color:C.textLight }}>({(file.size/1024).toFixed(0)} KB)</span></div>
-                    : <div style={{ fontSize:13, color:C.textLight }}>Przeciągnij plik lub kliknij aby wybrać<br/><span style={{ fontSize:11 }}>Obsługiwane formaty: PDF, DOCX, MD, TXT</span></div>
+                    ? <div style={{ fontSize: 13, fontWeight: 600, color: C.green }}>{file.name}<br/><span style={{ fontSize: 11, fontWeight: 400, color: C.textLight }}>({(file.size / 1024).toFixed(0)} KB)</span></div>
+                    : <div style={{ fontSize: 13, color: C.textLight }}>Przeciągnij plik lub kliknij aby wybrać<br/><span style={{ fontSize: 11 }}>PDF, DOCX, MD, TXT</span></div>
                   }
-                  <input ref={fileRef} type="file" accept=".pdf,.docx,.md,.txt" style={{ display:"none" }} onChange={e=>setFile(e.target.files[0])}/>
+                  <input ref={fileRef} type="file" accept=".pdf,.docx,.md,.txt" style={{ display: "none" }} onChange={e => setFile(e.target.files[0])}/>
                 </div>
-                <button onClick={handleUpload} disabled={!file||!savedId||uploading} style={{
-                  padding:"8px 20px", borderRadius:4, border:"none",
-                  background:(!file||!savedId)?C.border:C.green,
-                  color:(!file||!savedId)?C.textLight:"#fff",
-                  fontWeight:700, fontSize:13, cursor:(!file||!savedId)?"not-allowed":"pointer",
-                }}>{uploading?"⏳ Wysyłam…":"⬆ Wgraj załącznik"}</button>
+                <button onClick={handleUpload} disabled={!file || !savedId || uploading} style={{ padding: "8px 20px", borderRadius: 3, border: "none", background: (!file || !savedId) ? C.border : C.green, color: (!file || !savedId) ? C.textLight : "#fff", fontWeight: 700, fontSize: 13, cursor: (!file || !savedId) ? "not-allowed" : "pointer" }}>
+                  {uploading ? "⏳ Wysyłam…" : "⬆ Wgraj załącznik"}
+                </button>
               </div>
             </Card>
           </div>
         )}
 
         {/* ── INFO ── */}
-        {tab==="info" && (
-          <>
-            <InfoBlock icon="💡" title="Co to jest ten moduł?">
-              <InfoP>To <strong>wyszukiwarka kontekstowa bazy wiedzy</strong> — działa jak Google, ale przeszukuje tylko Twoje artykuły i dokumenty. Rozumie znaczenie pytań, nie tylko słowa kluczowe.</InfoP>
-              <InfoP>Przykład: wpisujesz <em>"nie mogę się zalogować"</em> — system znajdzie artykuł <em>"Procedura odzyskiwania dostępu"</em>, bo rozumie <strong>znaczenie</strong>, nie tylko słowa.</InfoP>
-            </InfoBlock>
+        {tab === "info" && <InfoTab/>}
 
-            <InfoBlock icon="🔍" title="Tryby wyszukiwania">
-              <ModeInfo icon="⚡" name="Wyszukiwanie słów kluczowych (FTS)" color={C.orange} bg={C.orangeBg}
-                how='Działa jak Ctrl+F — szuka dokładnych słów i ich odmian. Szybkie i precyzyjne.'
-                good="znasz dokładną frazę, szukasz kodu błędu, nazwy własnej"
-                bad="używasz innych słów niż w artykule"/>
-              <ModeInfo icon="🧠" name="Wyszukiwanie semantyczne" color={C.green} bg={C.greenBg}
-                how='Rozumie znaczenie — "nie mogę się zalogować" = "odzyskiwanie dostępu". Używa modelu AI.'
-                good="opisujesz problem własnymi słowami, nie znasz terminologii"
-                bad="szukasz konkretnego kodu błędu lub numeru seryjnego"/>
-              <ModeInfo icon="🔀" name="Hybrydowe (domyślne)" color={C.blue} bg={C.blueLight}
-                how="Łączy oba tryby algorytmem RRF — artykuły wysoko w obu listach trafiają na szczyt."
-                good="w większości przypadków — najlepsze wyniki"
-                bad="(brak istotnych wad — dlatego to tryb domyślny)"/>
-            </InfoBlock>
+      </div>
 
-            <InfoBlock icon="🛠" title="Technologie">
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 24px" }}>
-                <div>
-                  <div style={{ fontSize:12, fontWeight:700, color:C.textLight, textTransform:"uppercase", marginBottom:10 }}>Backend (serwer)</div>
-                  <Tech label="Python" desc="Język programowania serwera" color={C.orange}/>
-                  <Tech label="FastAPI" desc="Framework REST API" color={C.green}/>
-                  <Tech label="SQLite" desc="Baza danych (jeden plik)" color={C.blue}/>
-                  <Tech label="fastembed" desc="Model AI do embeddingów (~130 MB)" color={C.purple}/>
-                </div>
-                <div>
-                  <div style={{ fontSize:12, fontWeight:700, color:C.textLight, textTransform:"uppercase", marginBottom:10 }}>Infrastruktura</div>
-                  <Tech label="Railway" desc="Hosting backendu (chmura)" color={C.blue}/>
-                  <Tech label="Vercel" desc="Hosting frontendu" color="#000"/>
-                  <Tech label="Docker" desc="Konteneryzacja aplikacji" color="#0ea5e9}"/>
-                  <Tech label="GitHub" desc="Repozytorium kodu" color={C.text}/>
-                </div>
-              </div>
-            </InfoBlock>
+      {/* Footer */}
+      <div style={{ background: C.sectionBg, color: "rgba(255,255,255,0.4)", fontSize: 11, textAlign: "center", padding: "12px 20px", marginTop: 40 }}>
+        <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>BASELine™</span> Wyszukiwarka AI • Stworzone przez <span style={{ color: "rgba(255,255,255,0.7)" }}>WojnaR</span> z pomocą <span style={{ color: "rgba(255,255,255,0.7)" }}>Claude AI (Anthropic)</span> • Hybrydowe FTS + Semantic Search
+      </div>
 
-            <InfoBlock icon="🗄" title="Struktura bazy danych">
-              {[
-                { t:"kb_articles",    d:"Artykuły — tytuł, treść, kategoria, autor", c:C.blue },
-                { t:"kb_attachments", d:"Załączniki — ścieżka pliku, wyekstrahowany tekst (PDF/DOCX/MD)", c:C.purple },
-                { t:"kb_embeddings",  d:"Wektory AI — 384 liczby dla każdego fragmentu tekstu", c:C.green },
-                { t:"kb_categories",  d:"Kategorie artykułów", c:C.orange },
-                { t:"kb_search_logs", d:"Historia wyszukiwań — zapytania, czasy, wyniki", c:C.textMid },
-              ].map(r=>(
-                <div key={r.t} style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:10 }}>
-                  <code style={{ fontSize:11, background:r.c+"15", color:r.c, padding:"2px 8px", borderRadius:3, flexShrink:0, border:`1px solid ${r.c}30` }}>{r.t}</code>
-                  <span style={{ fontSize:13, color:C.textMid }}>{r.d}</span>
-                </div>
-              ))}
-            </InfoBlock>
-          </>
-        )}
-
-      </Page>
       <Toast msg={toast?.msg} type={toast?.type}/>
     </div>
   );
