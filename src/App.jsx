@@ -233,7 +233,7 @@ const ArticleRow = ({ article, onSearch, index }) => (
     onMouseEnter={e => e.currentTarget.style.background = C.blueLight}
     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
     onClick={() => onSearch(article.title)}>
-    <div style={{ width: 26, height: 26, borderRadius: 3, background: C.blueLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, color: C.blue, fontWeight: 700, fontSize: 11 }}>{index}</div>
+    <div style={{ width: 26, height: 26, borderRadius: 3, background: C.blueLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0, color: C.blue, fontWeight: 700 }}>{index}</div>
     <div style={{ width: 28, height: 28, background: C.blueLight, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>📄</div>
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: C.blue }}>{article.title}</div>
